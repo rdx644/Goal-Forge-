@@ -25,7 +25,7 @@ export async function POST(request) {
 
     const token = generateToken(user);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       token,
       user: {
         id: user.id,
@@ -37,6 +37,16 @@ export async function POST(request) {
         manager_id: user.manager_id,
       },
     });
+
+    response.cookies.set('goalforge_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 86400,
+    });
+
+    return response;
   } catch (err) {
     console.error('Login error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
