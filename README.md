@@ -1,4 +1,4 @@
-# 🚀 GoalForge — Goal Setting & Tracking Portal
+#  GoalForge — Goal Setting & Tracking Portal
 
 > **AtomQuest Hackathon 1.0** | In-House Goal Management System
 
@@ -6,7 +6,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 
 ---
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
@@ -19,7 +19,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 
 ---
 
-## ✨ Features
+##  Features
 
 ### Phase 1 — Goal Setting
 - ✅ Employee creates/edits goals (min 3, max 8)
@@ -55,7 +55,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
@@ -74,7 +74,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 
 ---
 
-## 🏗 Architecture
+##  Architecture
 
 ```
 goalforge/
@@ -130,7 +130,7 @@ Admin Dashboard → Reports → CSV Export
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### Prerequisites
 - Node.js 18+ 
@@ -156,7 +156,7 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
-## 🔑 Demo Credentials
+##  Demo Credentials
 
 | Role | Employee ID | Password | Access |
 |------|------------|----------|--------|
@@ -164,11 +164,11 @@ Open **http://localhost:3000** in your browser.
 | **Manager** | `mgr001` | `password123` | Approvals, team view, shared goals |
 | **Admin** | `admin001` | `password123` | Full system access, analytics, audit |
 
-> 💡 Use the **Quick Login** buttons on the login page for one-click access.
+>  Use the **Quick Login** buttons on the login page for one-click access.
 
 ---
 
-## ✅ BRD Compliance Matrix
+##  BRD Compliance Matrix
 
 | BRD Requirement | Status | Implementation |
 |-----------------|--------|---------------|
@@ -193,7 +193,7 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
-## 📡 API Documentation
+##  API Documentation
 
 ### Authentication
 | Method | Endpoint | Description |
@@ -229,7 +229,7 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
-## 📊 Evaluation Rubric Mapping
+##  Evaluation Rubric Mapping
 
 | # | Parameter (Weight) | Score Target | Our Implementation |
 |---|-------------------|-------------|-------------------|
@@ -242,6 +242,6 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
-## 📝 License
+##  License
 
 Built for **AtomQuest Hackathon 1.0** — All rights reserved.
