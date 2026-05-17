@@ -145,7 +145,7 @@ cd goalforge
 # 2. Install dependencies
 npm install
 
-# 3. Seed demo data
+# 3. Seed demo data (production requires ALLOW_SEED=true)
 npm run seed
 
 # 4. Start development server
@@ -200,6 +200,8 @@ Open **http://localhost:3000** in your browser.
 |--------|----------|-------------|
 | POST | `/api/auth/login` | Login with employee_id + password |
 | GET | `/api/auth/me` | Get current user profile |
+
+> Auth cookie used for dashboard middleware: `goalforge_token`
 
 ### Goals
 | Method | Endpoint | Description |

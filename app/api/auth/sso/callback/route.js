@@ -48,11 +48,12 @@ export async function GET(request) {
     const dashboardUrl = new URL(`/dashboard/${role}`, request.url);
     const response = NextResponse.redirect(dashboardUrl);
 
-    // Set token as a cookie for the frontend to pick up
+    // Set token cookie for authenticated dashboard and API access
     response.cookies.set('goalforge_token', token, {
-      httpOnly: false, // Frontend needs to read it
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
+      path: '/',
       maxAge: 86400, // 24 hours
     });
 
