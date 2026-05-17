@@ -3,3 +3,6 @@ node_modules/
 data/goalforge.db
 .env
 .env.local
+
+.vercel
+.env*.local

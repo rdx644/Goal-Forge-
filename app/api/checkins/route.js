@@ -23,10 +23,41 @@ export async function POST(request) {
         return NextResponse.json({ error: 'goal_id and quarter are required' }, { status: 400 });
       }
 
-      const goal = db.prepare('SELECT g.*, gs.employee_id FROM goals g JOIN goal_sheets gs ON g.goal_sheet_id = gs.id WHERE g.id = ?').get(goal_id);
+      const goal = db.prepare('SELECT g.*, gs.employee_id, gs.cycle_id FROM goals g JOIN goal_sheets gs ON g.goal_sheet_id = gs.id WHERE g.id = ?').get(goal_id);
       if (!goal) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
       if (goal.employee_id !== user.id && user.role === 'employee') {
         return NextResponse.json({ error: 'Cannot update another employee\'s goal' }, { status: 403 });
+      }
+
+      // Enforce check-in schedule window (BRD Table 1)
+      const cycle = db.prepare('SELECT * FROM cycles WHERE id = ?').get(goal.cycle_id);
+      if (cycle) {
+        const now = new Date().toISOString().split('T')[0];
+        const quarterWindows = {
+          Q1: { start: cycle.q1_start, end: cycle.q1_end },
+          Q2: { start: cycle.q2_start, end: cycle.q2_end },
+          Q3: { start: cycle.q3_start, end: cycle.q3_end },
+          Q4: { start: cycle.q4_start, end: cycle.q4_end },
+        };
+        const window = quarterWindows[quarter];
+        if (window && window.start && window.end) {
+          // Allow a 7-day grace period after window closes
+          const endDate = new Date(window.end);
+          endDate.setDate(endDate.getDate() + 7);
+          const graceEnd = endDate.toISOString().split('T')[0];
+          
+          if (now < window.start) {
+            return NextResponse.json({ 
+              error: `${quarter} check-in window has not opened yet. Opens on ${window.start}.` 
+            }, { status: 400 });
+          }
+          // Admin/Manager can override window restrictions
+          if (now > graceEnd && user.role === 'employee') {
+            return NextResponse.json({ 
+              error: `${quarter} check-in window has closed (${window.start} to ${window.end}). Contact your manager or admin.` 
+            }, { status: 400 });
+          }
+        }
       }
 
       // Compute progress score
