@@ -7,7 +7,7 @@
 | | Link |
 |---|---|
 | **GitHub Repository** | https://github.com/rdx644/Goal-Forge- |
-| **Live Hosted URL** | *(Add your deployed URL here — e.g. https://goal-forge.vercel.app)* |
+| **Live Hosted URL** | https://goal-forge-woad.vercel.app/ |
 
 ---
 
