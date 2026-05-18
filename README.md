@@ -38,7 +38,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 - ✅ Manager quarterly check-in comments
 - ✅ Status tracking (Not Started → On Track → Completed)
 
-### Governance & Reports (Section 4-5)
+### Governance & Reports 
 - ✅ Complete audit trail (who changed what, when, why)
 - ✅ Achievement report export (CSV)
 - ✅ Completion tracking dashboard by quarter
@@ -47,9 +47,9 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 - ✅ Goal distribution by thrust area
 - ✅ UoM distribution analytics
 
-### Good-to-Have (Bonus Points)
-- ✅ **Configurable Escalation Rules** (Section 5.3) — 3-level escalation with HR notification
-- ✅ **Automated Notifications** (Section 5.2) — Goal submission, approval, return, shared goal, check-in feedback
+### Good-to-Have 
+- ✅ **Configurable Escalation Rules**  — 3-level escalation with HR notification
+- ✅ **Automated Notifications**  — Goal submission, approval, return, shared goal, check-in feedback
 - ✅ **Admin Controls** — Cycle management, user management, goal sheet unlock
 - ✅ **Role-based Dashboards** — Tailored views for Employee, Manager, Admin
 
