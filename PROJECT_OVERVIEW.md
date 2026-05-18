@@ -67,12 +67,6 @@ Internal service modules that the API routes delegate to:
 
 ![Login Credentials](https://github.com/user-attachments/assets/9896e91e-e437-4716-b48b-eb61148e0ab9)
 
-| Role | Employee ID | Password | Access Level |
-|---|---|---|---|
-| **Employee** | `emp001` | `password123` | Create goals, submit sheets, log achievements, view notifications |
-| **Manager** | `mgr001` | `password123` | Approve/return goals, quarterly check-ins, team overview |
-| **Admin / HR** | `admin001` | `password123` | Full admin: cycles, users, escalation, reports, audit trail, integrations |
-
 > 💡 **Quick Login**: The login page provides one-click **Quick Login** buttons for each role — no need to type credentials manually. Use these buttons to instantly switch between and explore all three user journeys.
 
 ---
