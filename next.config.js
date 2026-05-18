@@ -5,8 +5,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Server-side SQLite requires serverExternalPackages
-  serverExternalPackages: ['better-sqlite3'],
+  experimental: {
+    // Server-side SQLite requires the native package to stay external.
+    serverComponentsExternalPackages: ['better-sqlite3'],
+  },
 };
 
 module.exports = nextConfig;

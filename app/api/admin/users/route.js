@@ -21,6 +21,14 @@ export async function GET(request) {
     if (role) { query += ' AND role = ?'; params.push(role); }
     if (managerId) { query += ' AND manager_id = ?'; params.push(managerId); }
 
+    if (user.role === 'manager') {
+      query += " AND role = 'employee' AND manager_id = ?";
+      params.push(user.id);
+    } else if (user.role === 'employee') {
+      query += ' AND id = ?';
+      params.push(user.id);
+    }
+
     query += ' ORDER BY name';
     const users = db.prepare(query).all(...params);
 
@@ -51,11 +59,16 @@ export async function POST(request) {
 
     if (body.action === 'unlock_goal_sheet') {
       // Admin unlock capability
-      db.prepare("UPDATE goal_sheets SET status = 'approved' WHERE id = ?").run(body.goal_sheet_id);
+      const reason = body.reason || 'Admin unlock';
+      db.prepare(`
+        UPDATE goal_sheets
+        SET status = 'returned', return_reason = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).run(reason, body.goal_sheet_id);
       db.prepare(`
         INSERT INTO audit_log (entity_type, entity_id, action, changed_by, reason)
         VALUES ('goal_sheet', ?, 'admin_unlock', ?, ?)
-      `).run(body.goal_sheet_id, user.id, body.reason || 'Admin unlock');
+      `).run(body.goal_sheet_id, user.id, reason);
       return NextResponse.json({ message: 'Goal sheet unlocked' });
     }
 

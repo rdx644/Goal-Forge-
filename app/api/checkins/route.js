@@ -22,11 +22,25 @@ export async function POST(request) {
       if (!goal_id || !quarter) {
         return NextResponse.json({ error: 'goal_id and quarter are required' }, { status: 400 });
       }
+      if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+        return NextResponse.json({ error: 'Invalid quarter' }, { status: 400 });
+      }
+      if (status && !['not_started', 'on_track', 'completed'].includes(status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
 
-      const goal = db.prepare('SELECT g.*, gs.employee_id, gs.cycle_id FROM goals g JOIN goal_sheets gs ON g.goal_sheet_id = gs.id WHERE g.id = ?').get(goal_id);
+      const goal = db.prepare('SELECT g.*, gs.employee_id, gs.cycle_id, gs.status as sheet_status FROM goals g JOIN goal_sheets gs ON g.goal_sheet_id = gs.id WHERE g.id = ?').get(goal_id);
       if (!goal) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
       if (goal.employee_id !== user.id && user.role === 'employee') {
         return NextResponse.json({ error: 'Cannot update another employee\'s goal' }, { status: 403 });
+      }
+      if (!['approved', 'locked'].includes(goal.sheet_status)) {
+        return NextResponse.json({ error: 'Goals must be approved and locked before achievements can be updated.' }, { status: 400 });
+      }
+      if (user.role === 'employee' && goal.is_shared && goal.shared_from_goal_id) {
+        return NextResponse.json({
+          error: 'This shared KPI is updated by its primary owner. Recipients can adjust only weightage before submission.',
+        }, { status: 403 });
       }
 
       // Enforce check-in schedule window (BRD Table 1)
@@ -73,10 +87,10 @@ export async function POST(request) {
           progress_score = excluded.progress_score,
           employee_comment = excluded.employee_comment,
           updated_at = datetime('now')
-      `).run(goal_id, quarter, actual_value || null, completion_date || null, status || 'not_started', score, comment || null);
+      `).run(goal_id, quarter, actual_value ?? null, completion_date || null, status || 'not_started', score, comment || null);
 
-      // If this is a shared goal (primary owner), sync across linked sheets
-      if (!goal.is_shared && !goal.shared_from_goal_id) {
+      // If this is the primary owner of a shared goal, sync linked sheets.
+      if (!goal.shared_from_goal_id) {
         const linkedGoals = db.prepare('SELECT id FROM goals WHERE shared_from_goal_id = ?').all(goal.id);
         for (const linked of linkedGoals) {
           db.prepare(`
@@ -85,7 +99,7 @@ export async function POST(request) {
             ON CONFLICT(goal_id, quarter) DO UPDATE SET
               actual_value = excluded.actual_value, completion_date = excluded.completion_date,
               status = excluded.status, progress_score = excluded.progress_score, updated_at = datetime('now')
-          `).run(linked.id, quarter, actual_value || null, completion_date || null, status || 'not_started', score);
+          `).run(linked.id, quarter, actual_value ?? null, completion_date || null, status || 'not_started', score);
         }
       }
 
@@ -98,9 +112,25 @@ export async function POST(request) {
       if (!goal_sheet_id || !quarter || !comment) {
         return NextResponse.json({ error: 'goal_sheet_id, quarter, and comment are required' }, { status: 400 });
       }
+      if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(quarter)) {
+        return NextResponse.json({ error: 'Invalid quarter' }, { status: 400 });
+      }
 
       if (user.role !== 'manager' && user.role !== 'admin') {
         return NextResponse.json({ error: 'Only managers can add check-in comments' }, { status: 403 });
+      }
+
+      const sheetForAccess = db.prepare(`
+        SELECT gs.*, u.manager_id
+        FROM goal_sheets gs
+        JOIN users u ON u.id = gs.employee_id
+        WHERE gs.id = ?
+      `).get(goal_sheet_id);
+      if (!sheetForAccess) {
+        return NextResponse.json({ error: 'Goal sheet not found' }, { status: 404 });
+      }
+      if (user.role === 'manager' && sheetForAccess.manager_id !== user.id) {
+        return NextResponse.json({ error: 'Managers can only check in their own team.' }, { status: 403 });
       }
 
       db.prepare(`

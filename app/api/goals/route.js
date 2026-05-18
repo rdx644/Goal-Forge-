@@ -90,11 +90,26 @@ export async function POST(request) {
     }
 
     const db = getDb();
+    const cycle = db.prepare('SELECT * FROM cycles WHERE id = ?').get(cycle_id);
+
+    if (!cycle) {
+      return NextResponse.json({ error: 'Cycle not found' }, { status: 404 });
+    }
 
     // Get or create goal sheet
     let sheet = db.prepare(
       'SELECT * FROM goal_sheets WHERE employee_id = ? AND cycle_id = ?'
     ).get(user.id, cycle_id);
+
+    if (user.role === 'employee') {
+      const today = new Date().toISOString().split('T')[0];
+      const adminUnlocked = sheet?.approved_at && sheet?.status === 'returned';
+      if (!adminUnlocked && (today < cycle.goal_setting_start || today > cycle.goal_setting_end)) {
+        return NextResponse.json({
+          error: `Goal setting window is closed (${cycle.goal_setting_start} to ${cycle.goal_setting_end}). Contact Admin for exceptions.`,
+        }, { status: 400 });
+      }
+    }
 
     if (sheet && sheet.status === 'locked') {
       return NextResponse.json({ error: 'Goal sheet is locked. Contact Admin to unlock.' }, { status: 403 });
@@ -113,8 +128,59 @@ export async function POST(request) {
     }
 
     const totalWeightage = goals.reduce((sum, g) => sum + Number(g.weightage || 0), 0);
+    const shouldAuditPostLock = !!sheet?.approved_at;
+    const oldGoals = sheet
+      ? db.prepare('SELECT * FROM goals WHERE goal_sheet_id = ? ORDER BY sort_order, id').all(sheet.id)
+      : [];
+
+    const logAudit = (entityId, action, field, oldValue, newValue, reason) => {
+      db.prepare(`
+        INSERT INTO audit_log (entity_type, entity_id, action, field_changed, old_value, new_value, changed_by, reason)
+        VALUES ('goal', ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        entityId || 0,
+        action,
+        field || null,
+        oldValue == null ? null : String(oldValue),
+        newValue == null ? null : String(newValue),
+        user.id,
+        reason
+      );
+    };
+
+    const logPostLockGoalChanges = () => {
+      if (!shouldAuditPostLock) return;
+
+      const incomingById = new Map(goals.filter(g => g.id).map(g => [Number(g.id), g]));
+      const oldById = new Map(oldGoals.map(g => [Number(g.id), g]));
+      const auditableFields = ['title', 'description', 'thrust_area_id', 'uom_type', 'target_value', 'target_date', 'weightage'];
+
+      for (const oldGoal of oldGoals) {
+        const incoming = incomingById.get(Number(oldGoal.id));
+        if (!incoming) {
+          logAudit(oldGoal.id, 'post_lock_delete', null, oldGoal.title, null, 'Employee edit after admin unlock');
+          continue;
+        }
+
+        for (const field of auditableFields) {
+          const oldValue = oldGoal[field] ?? '';
+          const newValue = incoming[field] ?? '';
+          if (String(oldValue) !== String(newValue)) {
+            logAudit(oldGoal.id, 'post_lock_edit', field, oldValue, newValue, 'Employee edit after admin unlock');
+          }
+        }
+      }
+
+      for (const incoming of goals) {
+        if (!incoming.id || !oldById.has(Number(incoming.id))) {
+          logAudit(null, 'post_lock_create', 'title', null, incoming.title || '(untitled)', 'Employee added goal after admin unlock');
+        }
+      }
+    };
 
     const txn = db.transaction(() => {
+      logPostLockGoalChanges();
+
       if (!sheet) {
         const result = db.prepare(`
           INSERT INTO goal_sheets (employee_id, cycle_id, status, total_weightage)
@@ -132,6 +198,23 @@ export async function POST(request) {
       // Delete existing goals and re-insert (simpler for hackathon)
       db.prepare('DELETE FROM goals WHERE goal_sheet_id = ? AND is_shared = 0').run(sheet.id);
 
+      // Shared/cascaded goals are immutable except recipient weightage.
+      const updateSharedWeightage = db.prepare(`
+        UPDATE goals SET weightage = ?, updated_at = datetime('now')
+        WHERE id = ? AND goal_sheet_id = ? AND is_shared = 1
+      `);
+      goals.forEach((goal) => {
+        if (goal.is_shared && goal.id) {
+          if (shouldAuditPostLock) {
+            const oldGoal = oldGoals.find(g => Number(g.id) === Number(goal.id));
+            if (oldGoal && Number(oldGoal.weightage) !== Number(goal.weightage)) {
+              logAudit(goal.id, 'post_lock_edit', 'weightage', oldGoal.weightage, goal.weightage, 'Shared-goal weightage adjusted after admin unlock');
+            }
+          }
+          updateSharedWeightage.run(goal.weightage, goal.id, sheet.id);
+        }
+      });
+
       const insertGoal = db.prepare(`
         INSERT INTO goals (goal_sheet_id, thrust_area_id, title, description, uom_type, 
           target_value, target_date, weightage, sort_order)
@@ -142,7 +225,7 @@ export async function POST(request) {
         if (!goal.is_shared) {
           insertGoal.run(
             sheet.id, goal.thrust_area_id || null, goal.title, goal.description || '',
-            goal.uom_type, goal.target_value || null, goal.target_date || null,
+            goal.uom_type, goal.target_value ?? null, goal.target_date || null,
             goal.weightage, idx
           );
         }

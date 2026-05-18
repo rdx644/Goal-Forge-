@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/auth/sso/callback — Azure AD SSO callback
  * Handles the authorization code exchange and creates/syncs user

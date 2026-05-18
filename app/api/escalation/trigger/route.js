@@ -52,7 +52,7 @@ export async function GET(request) {
     const lastRun = db.prepare(`
       SELECT * FROM audit_log 
       WHERE action = 'escalation_engine_run' 
-      ORDER BY created_at DESC LIMIT 1
+      ORDER BY changed_at DESC LIMIT 1
     `).get();
 
     const openEscalations = db.prepare(`
@@ -64,7 +64,7 @@ export async function GET(request) {
     `).get();
 
     return NextResponse.json({
-      last_run: lastRun?.created_at || 'Never',
+      last_run: lastRun?.changed_at || 'Never',
       open_escalations: openEscalations.count,
       active_rules: activeRules.count,
     });

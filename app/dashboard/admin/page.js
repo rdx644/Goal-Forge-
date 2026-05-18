@@ -76,7 +76,8 @@ export default function AdminDashboard() {
 
   const exportCSV = async () => {
     const token = getToken();
-    window.open(`/api/reports/achievement?cycle_id=1&format=csv&token=${token}`, '_blank');
+    const activeCycleId = cycles.find(c => c.is_active)?.id || cycles[0]?.id || 1;
+    window.open(`/api/reports/achievement?cycle_id=${activeCycleId}&format=csv&token=${token}`, '_blank');
     showToast('Report downloading...');
   };
 

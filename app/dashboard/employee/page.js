@@ -108,7 +108,7 @@ export default function EmployeeDashboard() {
     try {
       const res = await api('/api/goals', {
         method: 'POST',
-        body: JSON.stringify({ cycle_id: selectedCycle, goals: goals.filter(g => !g.is_shared), action })
+        body: JSON.stringify({ cycle_id: selectedCycle, goals, action })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -324,6 +324,7 @@ export default function EmployeeDashboard() {
                     <tbody>
                       {goals.map((goal, idx) => {
                         const ach = (goal._achievements || []).find(a => a.quarter === selectedQuarter) || {};
+                        const linkedSharedGoal = goal.is_shared && goal.shared_from_goal_id;
                         return (
                           <tr key={idx}>
                             <td style={{ maxWidth: 200 }}><strong>{goal.title}</strong><br /><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>W: {goal.weightage}%</span></td>
@@ -332,15 +333,18 @@ export default function EmployeeDashboard() {
                             <td>
                               {goal.uom_type === 'timeline' ? (
                                 <input type="date" className="form-input" style={{ width: 150 }} defaultValue={ach.completion_date || ''}
-                                  onBlur={e => saveAchievement(goal.id, selectedQuarter, null, e.target.value, ach.status || 'on_track')} />
+                                  disabled={linkedSharedGoal}
+                                  onBlur={e => !linkedSharedGoal && saveAchievement(goal.id, selectedQuarter, null, e.target.value, ach.status || 'on_track')} />
                               ) : (
                                 <input type="number" className="form-input" style={{ width: 100 }} defaultValue={ach.actual_value || ''}
-                                  onBlur={e => saveAchievement(goal.id, selectedQuarter, Number(e.target.value), null, ach.status || 'on_track')} />
+                                  disabled={linkedSharedGoal}
+                                  onBlur={e => !linkedSharedGoal && saveAchievement(goal.id, selectedQuarter, Number(e.target.value), null, ach.status || 'on_track')} />
                               )}
                             </td>
                             <td>
                               <select className="form-select" style={{ width: 130 }} defaultValue={ach.status || 'not_started'}
-                                onChange={e => saveAchievement(goal.id, selectedQuarter, ach.actual_value, ach.completion_date, e.target.value)}>
+                                disabled={linkedSharedGoal}
+                                onChange={e => !linkedSharedGoal && saveAchievement(goal.id, selectedQuarter, ach.actual_value, ach.completion_date, e.target.value)}>
                                 <option value="not_started">Not Started</option>
                                 <option value="on_track">On Track</option>
                                 <option value="completed">Completed</option>

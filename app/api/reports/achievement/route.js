@@ -39,7 +39,8 @@ export async function GET(request) {
         d.quarter || '', d.actual_value || '', d.status || '', d.progress_score || ''
       ]);
 
-      const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+      const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+      const csv = [headers.map(escapeCsv).join(','), ...rows.map(r => r.map(escapeCsv).join(','))].join('\n');
 
       return new Response(csv, {
         headers: {

@@ -10,16 +10,31 @@ export async function POST(request) {
     const roleErr = requireRole(user, 'manager', 'admin');
     if (roleErr) return NextResponse.json({ error: roleErr.error }, { status: roleErr.status });
 
-    const { cycle_id, title, description, thrust_area_id, uom_type, target_value, target_date, employee_ids } = await request.json();
+    const { cycle_id, title, description, thrust_area_id, uom_type, target_value, target_date, employee_ids, primary_owner_id } = await request.json();
 
     if (!cycle_id || !title || !uom_type || !employee_ids || employee_ids.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const db = getDb();
+    const uniqueEmployeeIds = [...new Set(employee_ids.map(Number))];
+
+    if (user.role === 'manager') {
+      const allowed = db.prepare("SELECT id FROM users WHERE manager_id = ? AND role = 'employee'").all(user.id).map(e => e.id);
+      const invalid = uniqueEmployeeIds.filter(id => !allowed.includes(id));
+      if (invalid.length > 0) {
+        return NextResponse.json({ error: 'Managers can only push shared goals to their own team.' }, { status: 403 });
+      }
+    }
 
     const txn = db.transaction(() => {
-      for (const empId of employee_ids) {
+      const ownerId = primary_owner_id && uniqueEmployeeIds.includes(Number(primary_owner_id))
+        ? Number(primary_owner_id)
+        : uniqueEmployeeIds[0];
+      const orderedEmployeeIds = [ownerId, ...uniqueEmployeeIds.filter(id => id !== ownerId)];
+      let primaryGoalId = null;
+
+      for (const empId of orderedEmployeeIds) {
         // Get or create goal sheet for this employee
         let sheet = db.prepare(
           'SELECT * FROM goal_sheets WHERE employee_id = ? AND cycle_id = ?'
@@ -32,13 +47,18 @@ export async function POST(request) {
           sheet = { id: r.lastInsertRowid };
         }
 
-        // Insert shared goal — recipients can only adjust weightage
-        db.prepare(`
+        // Insert shared goal. The first recipient is the primary owner whose
+        // achievement updates sync to all linked goal sheets.
+        const result = db.prepare(`
           INSERT INTO goals (goal_sheet_id, thrust_area_id, title, description, uom_type, 
-            target_value, target_date, weightage, is_shared, shared_by_user_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 10, 1, ?)
+            target_value, target_date, weightage, is_shared, shared_from_goal_id, shared_by_user_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 10, 1, ?, ?)
         `).run(sheet.id, thrust_area_id || null, title, description || '', uom_type,
-          target_value || null, target_date || null, user.id);
+          target_value ?? null, target_date || null, primaryGoalId, user.id);
+
+        if (!primaryGoalId) {
+          primaryGoalId = result.lastInsertRowid;
+        }
 
         // Notify employee
         db.prepare(`
@@ -50,7 +70,7 @@ export async function POST(request) {
 
     txn();
 
-    return NextResponse.json({ message: `Shared goal pushed to ${employee_ids.length} employee(s)` });
+    return NextResponse.json({ message: `Shared goal pushed to ${uniqueEmployeeIds.length} employee(s)` });
   } catch (err) {
     console.error('Shared goal error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

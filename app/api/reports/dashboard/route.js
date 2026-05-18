@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/reports/dashboard — Completion dashboard data
 export async function GET(request) {
   try {
@@ -87,9 +89,11 @@ export async function GET(request) {
       const deptScores = db.prepare(`
         SELECT u.department,
           AVG(a.progress_score) as avg_score,
-          COUNT(DISTINCT a.user_id) as employees_updated
+          COUNT(DISTINCT gs.employee_id) as employees_updated
         FROM achievements a
-        JOIN users u ON a.user_id = u.id
+        JOIN goals g ON g.id = a.goal_id
+        JOIN goal_sheets gs ON gs.id = g.goal_sheet_id
+        JOIN users u ON gs.employee_id = u.id
         WHERE a.quarter = ?
         GROUP BY u.department
       `).all(q);
@@ -114,7 +118,9 @@ export async function GET(request) {
         MAX(CASE WHEN a.quarter = 'Q3' THEN a.progress_score END) as q3_score,
         MAX(CASE WHEN a.quarter = 'Q4' THEN a.progress_score END) as q4_score
       FROM users u
-      LEFT JOIN achievements a ON a.user_id = u.id
+      LEFT JOIN goal_sheets gs ON gs.employee_id = u.id
+      LEFT JOIN goals g ON g.goal_sheet_id = gs.id
+      LEFT JOIN achievements a ON a.goal_id = g.id
       WHERE u.role = 'employee'
       GROUP BY u.id
       ORDER BY u.department, u.name

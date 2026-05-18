@@ -16,6 +16,8 @@ export default function ManagerDashboard() {
   const [sharedGoal, setSharedGoal] = useState({ title: '', description: '', uom_type: 'min_numeric', target_value: '', thrust_area_id: '', employee_ids: [] });
   const [teamEmployees, setTeamEmployees] = useState([]);
   const [thrustAreas, setThrustAreas] = useState([]);
+  const [activeCycleId, setActiveCycleId] = useState(null);
+  const [approvalEdits, setApprovalEdits] = useState({});
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,18 +37,22 @@ export default function ManagerDashboard() {
 
   const loadData = async () => {
     setLoading(true);
-    const [goalsRes, empRes, taRes, notifRes] = await Promise.all([
-      api('/api/goals'), api('/api/admin/users?role=employee'), api('/api/thrust-areas'), api('/api/notifications')
+    const [goalsRes, empRes, taRes, notifRes, cyclesRes] = await Promise.all([
+      api('/api/goals'), api('/api/admin/users?role=employee'), api('/api/thrust-areas'), api('/api/notifications'), api('/api/admin/cycles')
     ]);
     const gd = await goalsRes.json(); setGoalSheets(gd.goal_sheets || []);
     const ed = await empRes.json(); setTeamEmployees(ed.users || []);
     const td = await taRes.json(); setThrustAreas(td.thrust_areas || []);
     const nd = await notifRes.json(); setNotifications(nd.notifications || []);
+    const cd = await cyclesRes.json(); setActiveCycleId((cd.cycles || []).find(c => c.is_active)?.id || null);
+    setApprovalEdits({});
     setLoading(false);
   };
 
   const handleApprove = async () => {
-    const res = await api('/api/goals/approve', { method: 'POST', body: JSON.stringify({ goal_sheet_id: selectedSheet.id, action: 'approve' }) });
+    const sheetGoalIds = new Set((selectedSheet.goals || []).map(g => g.id));
+    const edits = Object.values(approvalEdits).filter(e => sheetGoalIds.has(e.goal_id));
+    const res = await api('/api/goals/approve', { method: 'POST', body: JSON.stringify({ goal_sheet_id: selectedSheet.id, action: 'approve', edits }) });
     const data = await res.json();
     if (!res.ok) { showToast(data.error, 'error'); return; }
     showToast('Goal sheet approved and locked!');
@@ -73,12 +79,13 @@ export default function ManagerDashboard() {
   };
 
   const handlePushSharedGoal = async () => {
+    if (!activeCycleId) { showToast('No active performance cycle is configured.', 'error'); return; }
     const u = JSON.parse(localStorage.getItem('user') || 'null');
     const myTeam = teamEmployees.filter(e => e.manager_id === u?.id);
     const res = await api('/api/goals/shared', {
       method: 'POST',
       body: JSON.stringify({
-        cycle_id: 1, ...sharedGoal,
+        cycle_id: activeCycleId, ...sharedGoal,
         employee_ids: sharedGoal.employee_ids.length > 0 ? sharedGoal.employee_ids : myTeam.map(e => e.id)
       })
     });
@@ -92,6 +99,14 @@ export default function ManagerDashboard() {
   const pending = goalSheets.filter(s => s.status === 'submitted');
   const approved = goalSheets.filter(s => s.status === 'approved' || s.status === 'locked');
   const logout = () => { localStorage.clear(); router.push('/'); };
+
+  const editedValue = (goal, field) => approvalEdits[goal.id]?.[field] ?? goal[field] ?? '';
+  const updateApprovalEdit = (goal, field, value) => {
+    setApprovalEdits(prev => ({
+      ...prev,
+      [goal.id]: { ...(prev[goal.id] || {}), goal_id: goal.id, [field]: value },
+    }));
+  };
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}><div>Loading...</div></div>;
 
@@ -171,8 +186,18 @@ export default function ManagerDashboard() {
                             <td><strong>{g.title}</strong>{g.description && <><br /><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</span></>}</td>
                             <td>{g.thrust_area_name || '—'}</td>
                             <td><span className="badge badge-draft">{g.uom_type}</span></td>
-                            <td>{g.uom_type === 'timeline' ? g.target_date : g.uom_type === 'zero' ? '0' : g.target_value}</td>
-                            <td><strong>{g.weightage}%</strong></td>
+                            <td>
+                              {g.is_shared ? (
+                                g.uom_type === 'timeline' ? g.target_date : g.uom_type === 'zero' ? '0' : g.target_value
+                              ) : g.uom_type === 'timeline' ? (
+                                <input type="date" className="form-input" style={{ width: 150 }} value={editedValue(g, 'target_date')} onChange={e => updateApprovalEdit(g, 'target_date', e.target.value)} />
+                              ) : g.uom_type === 'zero' ? (
+                                '0'
+                              ) : (
+                                <input type="number" className="form-input" style={{ width: 110 }} value={editedValue(g, 'target_value')} onChange={e => updateApprovalEdit(g, 'target_value', Number(e.target.value))} />
+                              )}
+                            </td>
+                            <td><input type="number" className="form-input" min={10} max={100} style={{ width: 90 }} value={editedValue(g, 'weightage')} onChange={e => updateApprovalEdit(g, 'weightage', Number(e.target.value))} /></td>
                           </tr>
                         ))}
                       </tbody>
