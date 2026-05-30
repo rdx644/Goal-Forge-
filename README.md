@@ -66,7 +66,7 @@ GoalForge is a production-grade, full-lifecycle goal-setting and tracking portal
 | **Auth** | JWT + bcrypt | Stateless, role-based access control |
 | **Typography** | Google Fonts (Outfit) | Modern, premium feel |
 
-### Cost Optimization (Evaluation Parameter #6)
+### Cost Optimization 
 - **$0 infrastructure cost** — SQLite requires no external database service
 - **$0 hosting possible** — Can run on any machine with Node.js
 - No cloud database subscriptions, no connection strings, no network latency
